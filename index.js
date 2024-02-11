@@ -45,11 +45,13 @@ app.post("/auth/register", async (req, res) => {
         .json({ msg: "This email has already been registered" });
 
     const hashedPassword = await bycrypt.hash(req.body.password, 10);
+
     const user = new UsersModel({
       name: req.body.name,
       email: req.body.email,
       password: hashedPassword,
     });
+
     const savedUser = await user.save();
     res.status(201).json({
       msg: "User created successfully",
@@ -84,7 +86,7 @@ app.post("/auth/login", async (req, res) => {
   const corectPassword = await bycrypt.compare(password, existUser.password);
   if (!corectPassword)
     return res.status(400).json({
-      msg: "user not found",
+      msg: "The password is wrong",
     });
 
   const token = jwt.sign({ id: existUser._id }, process.env.JWT_SECRETE);
@@ -93,6 +95,67 @@ app.post("/auth/login", async (req, res) => {
   });
 });
 
+// افزودن اطلاعات کارتی کاربر به بک اند
+
+const userCardModle = mongoose.model("userCardModel", {
+  cardHolderName: String,
+  cardNumber: String,
+  expiryData: String,
+  cvv: String,
+  cardImage: String,
+});
+
+const storageUserCard = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadImage = path.join(__dirname, "/static/puplic/usercard/");
+    cb(null, uploadImage);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+const uploadCardImage = multer({ storage: storageUserCard });
+
+app.post(
+  "/craet/usercard",
+  uploadCardImage.single("cardImage"),
+  async (req, res) => {
+    if (
+      !req.file ||
+      !req.body.cardHolderName ||
+      !req.body.cardNumber ||
+      !req.body.expiryData ||
+      !req.body.cvv
+    )
+      res
+        .status(400)
+        .json({ msg: "Please enter the complete card information" });
+
+    const cardImageaddress = "/puplic" + "/usercard/" + req.file.filename;
+    const userCardInfoModel = await new userCardModle({
+      cardHolderName: req.body.cardHolderName,
+      cardNumber: req.body.cardNumber,
+      expiryData: req.body.expiryData,
+      cvv: req.body.cvv,
+      cardImage: cardImageaddress,
+    });
+    await userCardInfoModel.save();
+    res.status(200).json({
+      msg: userCardInfoModel,
+    });
+  }
+);
+// گرفتن اطلاعات کارت کاربر
+app.get("/cardinfo", async (req,res) => {
+  const token = req.headers.authorization;
+  if (!token) return res.status(400).json({ message: "unauthorization" });
+  const decodedToken = await jwt.verify(token, process.env.JWT_SECRETE);
+  if (!decodedToken) {
+    res.status(401).json({ msg: "un authorization" });
+  }
+  const userCardInfo=await userCardModle.find({})
+  res.status(200).json({msg:userCardInfo})
+});
 // فرستادن سرفصل ها به بک اند
 const categorieSchema = new mongoose.Schema({
   img: String,
@@ -103,8 +166,8 @@ const CategoryModle = new mongoose.model("category", categorieSchema);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uloadPath = path.join(__dirname, "/static/puplic/categorieuploads/");
-    cb(null, uloadPath); // ذخیره در مسیر ./uploads/
+    const uploadPath = path.join(__dirname, "/static/puplic/categorieuploads/");
+    cb(null, uploadPath); // ذخیره در مسیر ./uploads/
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname);
@@ -122,7 +185,7 @@ app.post("/create/categorie", upload.single("img"), async (req, res) => {
     categorieName: categorieName,
   });
   newCategory.save().then((resp) => {
-    res.status(200).json({
+    res.status(201).json({
       msg: "categorie created",
       resp,
     });
@@ -133,6 +196,7 @@ app.post("/create/categorie", upload.single("img"), async (req, res) => {
 
 app.get("/get/categorie", async (req, res) => {
   const token = req.headers.authorization;
+  if (!token) return res.status(400).json({ message: "unauthorization" });
   const decodedToken = await jwt.verify(token, process.env.JWT_SECRETE);
 
   if (!decodedToken) return res.status(400).json({ msg: "unauthorization" });
@@ -252,7 +316,7 @@ app.post(
     });
 
     pupularCourse.save();
-    res.status(200).json({
+    res.status(201).json({
       msg: pupularCourse,
     });
   }
@@ -260,6 +324,7 @@ app.post(
 
 app.get("/get/pupuparcourse", async (req, res) => {
   const token = req.headers.authorization;
+  if (!token) return res.status(400).json({ message: "unauthorization" });
   const decodedToken = await jwt.verify(token, process.env.JWT_SECRETE);
   if (!decodedToken)
     return res.status(401).json({
@@ -273,6 +338,15 @@ app.get("/get/pupuparcourse", async (req, res) => {
 });
 
 app.get("/coursedetailes/:productid", async (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) return res.status(400).json({ message: "unauthorization" });
+  const decodedToken = await jwt.verify(token, process.env.JWT_SECRETE);
+  if (!decodedToken)
+    return res.status(401).json({
+      msg: "unauthorization",
+    });
+  if (!req.params.productid)
+    return res.status(400).json({ msg: "Bad request" });
   const courseDetailes = await PupularCourseModle.findById(
     req.params.productid
   );
@@ -319,6 +393,7 @@ app.post(
 
 app.get("/get/topmentor", async (req, res) => {
   const token = req.headers.authorization;
+  if (!token) return res.status(400).json({ message: "unauthorization" });
   const decodedToken = await jwt.verify(token, process.env.JWT_SECRETE);
   if (!decodedToken) return res.status(401).json({ msg: "unauthorization" });
 
