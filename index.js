@@ -25,6 +25,10 @@ const UsersModel = mongoose.model("users", {
   name: String,
   email: String,
   password: String,
+  phoneNumber:String,
+  dateBrithDay:String,
+  gender:String,
+  userImageAddress:String,
 });
 app.use(cors());
 app.use(express.json());
@@ -90,72 +94,31 @@ app.post("/auth/login", async (req, res) => {
     });
 
   const token = jwt.sign({ id: existUser._id }, process.env.JWT_SECRETE);
+  const userInfo=await UsersModel.findById(id=existUser._id)
   res.status(200).json({
-    token: token,
+    token: token,userInfo
   });
 });
+// update user info
+// const saveUserImage=multer.diskStorage(
+//   {
+//     destination:function(req,file,cb){
+//       const uploadPath=path.join(__dirname,"/static/puplic/userimage/")
+//       cb(null,uploadPath)
+//     },
+//     filename:function(req,file,cb){
+//       cb(null, Date.now() + "-" + file.originalname);
+//     },
+//   }
+// )
+// const uploadUserImage=multer({storage:saveUserImage})
+// app.put("/user/update",uploadUserImage.single("profileImage"),async(req,res)=>{
+// console.log(req.file)
+// console.log(req.body)
+// const updateUser=await UsersModel.findByIdAndUpdate()
+// res.status(201)
+// })
 
-// افزودن اطلاعات کارتی کاربر به بک اند
-
-const userCardModle = mongoose.model("userCardModel", {
-  cardHolderName: String,
-  cardNumber: String,
-  expiryData: String,
-  cvv: String,
-  cardImage: String,
-});
-
-const storageUserCard = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadImage = path.join(__dirname, "/static/puplic/usercard/");
-    cb(null, uploadImage);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
-const uploadCardImage = multer({ storage: storageUserCard });
-
-app.post(
-  "/craet/usercard",
-  uploadCardImage.single("cardImage"),
-  async (req, res) => {
-    if (
-      !req.file ||
-      !req.body.cardHolderName ||
-      !req.body.cardNumber ||
-      !req.body.expiryData ||
-      !req.body.cvv
-    )
-      res
-        .status(400)
-        .json({ msg: "Please enter the complete card information" });
-
-    const cardImageaddress = "/puplic" + "/usercard/" + req.file.filename;
-    const userCardInfoModel = await new userCardModle({
-      cardHolderName: req.body.cardHolderName,
-      cardNumber: req.body.cardNumber,
-      expiryData: req.body.expiryData,
-      cvv: req.body.cvv,
-      cardImage: cardImageaddress,
-    });
-    await userCardInfoModel.save();
-    res.status(200).json({
-      msg: userCardInfoModel,
-    });
-  }
-);
-// گرفتن اطلاعات کارت کاربر
-app.get("/cardinfo", async (req,res) => {
-  const token = req.headers.authorization;
-  if (!token) return res.status(400).json({ message: "unauthorization" });
-  const decodedToken = await jwt.verify(token, process.env.JWT_SECRETE);
-  if (!decodedToken) {
-    res.status(401).json({ msg: "un authorization" });
-  }
-  const userCardInfo=await userCardModle.find({})
-  res.status(200).json({msg:userCardInfo})
-});
 // فرستادن سرفصل ها به بک اند
 const categorieSchema = new mongoose.Schema({
   img: String,
